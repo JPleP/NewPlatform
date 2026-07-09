@@ -30,12 +30,12 @@ const App = () => {
     if (DEMO_MODE) startMockSimulation()
   }, [])
 
-  RealModePolling()
+  RealModePolling() //{!DEMO_MODE && <Route path="*" element={<RealModePolling />} />}
   return (
     <Routes>
       <Route element={<AppShell />}>
         {/* Inject real-mode polling once, inside the router context */}
-        //{!DEMO_MODE && <Route path="*" element={<RealModePolling />} />}
+        
 
         <Route path="/"            element={<DashboardPage />} />
         <Route path="/topology"    element={<TopologyPage />} />
