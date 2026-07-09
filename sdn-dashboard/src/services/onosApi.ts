@@ -432,11 +432,13 @@ export interface PortStatSnapshot {
 }
 
 export const fetchPortStats = async (deviceIds: string[]): Promise<PortStatSnapshot[]> => {
+  console.log("Test")
   const results: PortStatSnapshot[] = []
   await Promise.all(
     deviceIds.map(async (id) => {
       try {
         const raw = await getPortStats(id)
+        console.log(raw);
         const entries: Array<{ port: string; statistics: any }> = raw.statistics ?? []
         entries.forEach((e) => {
           results.push({
