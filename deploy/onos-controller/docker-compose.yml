@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  onos:
+    image: onosproject/onos:2.7-latest
+    container_name: onos
+    restart: unless-stopped
+    ports:
+      # OpenFlow (legacy 1.0-1.3)
+      - "6633:6633"
+      # OpenFlow 1.3+ (standard)
+      - "6653:6653"
+      # ONOS Web GUI + REST API
+      - "8181:8181"
+      # ONOS CLI (SSH)
+      - "8101:8101"
+      # ONOS intra-cluster
+      - "9876:9876"
+    environment:
+      ONOS_APPS: >-
+        drivers.optical,
+        openflow,
+        openflow-base,
+        fwd,
+        proxyarp,
+        hostprovider,
+        lldpprovider,
+        gui2
+    volumes:
+      - onos-data:/root/onos/apache-karaf-*/data
+      - ./config:/root/onos/config:ro
+    networks:
+      - mgmt
+
+  # Optional: ONOS cluster node 2 (uncomment for HA)
+  # onos2:
+  #   image: onosproject/onos:2.7-latest
+  #   container_name: onos2
+  #   ...
+
+volumes:
+  onos-data:
+
+networks:
+  mgmt:
+    driver: bridge
