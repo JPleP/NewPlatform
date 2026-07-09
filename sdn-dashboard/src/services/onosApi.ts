@@ -387,12 +387,17 @@ export const fetchTopology = async (): Promise<{
 
   // Add host-access links from host location info
   rawHosts.forEach((h) => {
-    if (!h.location?.elementId) return
-    const id = `${h.location.elementId}:${h.location.port}-${h.id}`
+    //if (!h.location?.elementId) return
+    //const id = `${h.location.elementId}:${h.location.port}-${h.id}`
+    if (!h.locations[0]?.elementId) return
+    const location = h.locations[0]
+    const id = `${location.elementId}:${location.port}-${h.id}`
     links.push({
       id,
-      sourceDeviceId: h.location.elementId,
-      sourcePort: Number(h.location.port),
+      //sourceDeviceId: h.location.elementId,
+      //sourcePort: Number(h.location.port),
+      sourceDeviceId: location.elementId,
+      sourcePort: Number(location.port),
       targetDeviceId: h.id,
       targetPort: 1,
       utilizationPct: 0,
