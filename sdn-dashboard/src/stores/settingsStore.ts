@@ -4,7 +4,7 @@ import type { AppSettings, ConnectionSettings, DashboardSettings } from '@/types
 
 const DEFAULT_SETTINGS: AppSettings = {
   connection: {
-    onosHost: 'localhost',
+    onosHost: '10.42.0.220',
     onosPort: 8181,
     onosUser: 'onos',
     onosPassword: 'rocks',

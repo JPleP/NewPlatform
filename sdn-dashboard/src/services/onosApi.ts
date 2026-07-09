@@ -89,7 +89,9 @@ interface OnosStatEntry {
 const createClient = (): AxiosInstance => {
   const { connection } = useSettingsStore.getState()
   const proto = connection.useSSL ? 'https' : 'http'
-  const baseURL = `${proto}://${connection.onosHost}:${connection.onosPort}/onos/v1`
+  //const baseURL = `${proto}://${connection.onosHost}:${connection.onosPort}/onos/v1`
+  
+  const baseURL = '/onos/v1'
   const token = btoa(`${connection.onosUser}:${connection.onosPassword}`)
 
   return axios.create({
