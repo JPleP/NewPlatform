@@ -136,12 +136,15 @@ export const useOnosPolling = () => {
           const tputMbps  = (deltaBytes * 8) / 1e6 / (METRICS_MS / 1000)
           prevBytesRef.current.set(key, srcStats.txBytes)
 
+          //Calculate the total packet loss
+          const dropRate = (srcStats.rxDropped + srcStats.txDropped) / Math.max(srcStats.rxPackets + srcStats.txPackets, 1) * 100
+
           updateLinkMetrics(
             link.id,
             {
               bandwidth: tputMbps,
               latency: link.latencyMs,
-              packetLoss: link.packetLossPct,
+              packetLoss: dropRate,
               rxBytes: srcStats.rxBytes,
               txBytes: srcStats.txBytes,
             },

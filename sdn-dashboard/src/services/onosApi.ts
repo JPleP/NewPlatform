@@ -429,6 +429,10 @@ export interface PortStatSnapshot {
   rxPackets: number
   txPackets: number
   durationSec: number
+  rxDropped:  number
+  txDropped:  number
+  rxErrors:   number
+  txErrors:   number
 }
 
 export const fetchPortStats = async (deviceIds: string[]): Promise<PortStatSnapshot[]> => {
@@ -438,7 +442,6 @@ export const fetchPortStats = async (deviceIds: string[]): Promise<PortStatSnaps
       try {
         const raw = await getPortStats(id)
         const entries: Array<{ statistics: any }> = raw.statistics[0]?.ports ?? []
-        
         entries.forEach((e) => {
           results.push({
             deviceId: id,
@@ -448,6 +451,10 @@ export const fetchPortStats = async (deviceIds: string[]): Promise<PortStatSnaps
             rxPackets: e.packetsReceived ?? 0,
             txPackets: e.packetsSent     ?? 0,
             durationSec: e.durationSec  ?? 0,
+            rxDropped:   e.packetsRxDropped    ?? 0,
+            txDropped: e.packetsTxDropped ?? 0,
+            rxErrors: e.packetsRxErrors     ?? 0,
+            txErrors: e.packetsTxErrors  ?? 0,
           })
         })
       } catch { /* device might not have stats API */ }
