@@ -12,6 +12,7 @@ import { fetchTopology, fetchPortStats } from '@/services/onosApi'
 import { useNetworkStore } from '@/stores/networkStore'
 import { useFlowStore } from '@/stores/flowStore'
 import { useMetricsStore } from '@/stores/metricsStore'
+import { LinkMetrics } from '@/types'
 
 // Default polling intervals (ms)
 const TOPOLOGY_MS = Number(import.meta.env.VITE_TOPOLOGY_POLL_MS ?? 5_000)
@@ -24,6 +25,8 @@ export const useOnosPolling = () => {
 
   const setFlows = useFlowStore((s) => s.setFlows)
   const updateLinkMetrics = useMetricsStore((s) => s.updateLinkMetrics)
+  //To update the links with the latest metrics
+  const getLinkMetrics = useMetricsStore((s) => s.getLinkMetrics)
 
   const prevDeviceIds = useRef<Set<string>>(new Set())
 
@@ -38,6 +41,42 @@ export const useOnosPolling = () => {
   const pollTopology = useCallback(async () => {
     try {
       const { topology, flows } = await fetchTopology()
+      
+      // Since we are separate from the metrics fetching, get the current latest metrics.
+      const storedMetrics = useMetricsStore.getState().linkMetrics
+
+      // Function to get the latest metric value
+      const latest = <K extends keyof LinkMetrics>(
+        arr: LinkMetrics[K],
+      ): number | undefined =>
+        Array.isArray(arr) && arr.length
+          ? (arr[arr.length - 1] as { value: number }).value
+          : undefined
+
+      // Update all links with the latest stored data
+      topology.links = topology.links.map((link) => {
+        const metrics = storedMetrics[link.id]
+
+        if (!metrics) {
+          return link
+        }
+
+        const throughput = latest(metrics.bandwidth)
+        const packetLoss = latest(metrics.packetLoss)
+
+        return {
+          ...link,
+          throughputMbps: throughput ?? link.throughputMbps,
+          utilizationPct:
+            throughput !== undefined
+              ? Math.min(
+                  100,
+                  (throughput / Math.max(link.capacityMbps, 1)) * 100,
+                )
+              : link.utilizationPct,
+          packetLossPct: packetLoss ?? link.packetLossPct,
+        }
+      })
 
       setTopology(topology)
       setFlows(flows)
@@ -138,7 +177,6 @@ export const useOnosPolling = () => {
 
           //Calculate the total packet loss
           const dropRate = (srcStats.rxDropped + srcStats.txDropped) / Math.max(srcStats.rxPackets + srcStats.txPackets, 1) * 100
-
           updateLinkMetrics(
             link.id,
             {
