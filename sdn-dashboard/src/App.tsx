@@ -14,6 +14,7 @@ import { useWebSocketManager } from '@/hooks/useWebSocket'
 import { useOnosPolling } from '@/hooks/useOnosPolling'
 import { startMockSimulation } from '@/utils/mockData'
 import { PathBuilderPage } from './pages/PathBuilderPage'
+import { subscribeToSFCLinkHealth } from './stores/sfcStore'
 
 
 // Read from .env.local — defaults to demo mode so the project works out of the box
@@ -30,9 +31,17 @@ const App = () => {
 
   useEffect(() => {
     if (DEMO_MODE) startMockSimulation()
+
+    const unsubscribeSFCHealth = subscribeToSFCLinkHealth()
+
+    return () => {
+      unsubscribeSFCHealth()
+    }
   }, [])
 
-  RealModePolling() //{!DEMO_MODE && <Route path="*" element={<RealModePolling />} />}
+  {!DEMO_MODE}{
+    RealModePolling()
+  } //{!DEMO_MODE && <Route path="*" element={<RealModePolling />} />}
   return (
     <Routes>
       <Route element={<AppShell />}>

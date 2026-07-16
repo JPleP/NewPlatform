@@ -32,10 +32,10 @@ export const subscribeToSFCLinkHealth = () => {
         console.log(failedLink)
 
         if (failedLink) {
-          /*updateChainState(
+          updateChainState(
             chain.id,
             'degraded'
-          )*/
+          )
 
           useNetworkStore.getState().addAlert({
             severity: 'critical',
