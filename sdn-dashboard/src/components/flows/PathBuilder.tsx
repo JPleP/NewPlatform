@@ -61,7 +61,7 @@ export const PathBuilder = ({ srcId, dstId, onReset, onCancel, selectedSliceId }
     const priority = slice?.priority ?? 40000
     const newFlowIds: string[] = []
 
-    for (const [idx, swId] of switchesOnPath.entries()) {
+    for (const swId of switchesOnPath) { {
       // Find the next hop link to determine output port
       const swIdx = path.indexOf(swId)
       const nextHopId = path[swIdx + 1]
@@ -76,7 +76,7 @@ export const PathBuilder = ({ srcId, dstId, onReset, onCancel, selectedSliceId }
         : 1
 
       const flow: FlowRule = {
-        id: `flow-${Date.now()}-${idx}`,
+        id: `flow-${Date.now()}-${swIdx}`,
         deviceId: swId,
         tableId: 0,
         priority,
