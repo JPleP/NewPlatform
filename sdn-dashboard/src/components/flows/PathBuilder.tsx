@@ -102,7 +102,7 @@ export const PathBuilder = ({ srcId, dstId, onReset, onCancel, selectedSliceId }
         true, 0, 'org.onosproject.rest'
       )
       newFlowIds.push(flow.id)
-    }
+    } }
 
     // Assign to slice if selected
     if (selectedSliceId) {
