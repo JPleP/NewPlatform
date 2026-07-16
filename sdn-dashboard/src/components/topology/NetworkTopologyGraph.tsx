@@ -542,6 +542,10 @@ export const NetworkTopologyGraph = forwardRef<NetworkTopologyGraphHandle, Netwo
   // ── Cytoscape event wiring ──────────────────────────────────────────────────
   const handleCyReady = useCallback((cy: Cytoscape.Core) => {
     cyRef.current = cy
+
+    // Remove previous handlers to avoid duplicate events
+    cy.removeAllListeners()
+    
     // Each time Cytoscape mounts (or re-mounts), reset the layout gate
     // so the ResizeObserver can fire the layout once the container is sized.
     layoutDoneRef.current = false
