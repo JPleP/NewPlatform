@@ -5,6 +5,7 @@ import { useSliceStore } from '@/stores/sliceStore'
 import { colorClasses } from './SliceBar'
 import type { FlowRule, SliceColor } from '@/types'
 import { clsx } from 'clsx'
+import { addFlow as pushFlowToOnos } from '@/services/onosApi'
 
 interface PathBuilderProps {
   srcId: string | null
@@ -54,13 +55,13 @@ export const PathBuilder = ({ srcId, dstId, onReset, onCancel, selectedSliceId }
 
   const switchesOnPath = path.filter(id => devices.find(d => d.id === id)?.type === 'switch')
 
-  const deployFlow = () => {
+  const deployFlow = async () => {
     if (!srcId || !dstId || path.length < 2) return
 
     const priority = slice?.priority ?? 40000
     const newFlowIds: string[] = []
 
-    switchesOnPath.forEach((swId, idx) => {
+    for (const [idx, swId] of switchesOnPath.entries()) {
       // Find the next hop link to determine output port
       const swIdx = path.indexOf(swId)
       const nextHopId = path[swIdx + 1]
@@ -95,8 +96,13 @@ export const PathBuilder = ({ srcId, dstId, onReset, onCancel, selectedSliceId }
         actions: [{ type: 'OUTPUT', port: outPort }],
       }
       addFlow(flow)
+      await pushFlowToOnos(                       // new — pushes to ONOS
+        flow.deviceId, flow.priority,
+        flow.match, flow.actions,
+        true, 0, 'org.onosproject.rest'
+      )
       newFlowIds.push(flow.id)
-    })
+    }
 
     // Assign to slice if selected
     if (selectedSliceId) {
