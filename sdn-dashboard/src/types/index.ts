@@ -313,6 +313,8 @@ export interface DashboardSettings {
 export interface AppSettings {
   connection: ConnectionSettings
   dashboard: DashboardSettings
+  /** Keyed by the agent's own host device ID */
+  agents: Record<string, AgentData>
 }
 
 // ─── UI State Types ───────────────────────────────────────────────────────────
@@ -323,3 +325,11 @@ export interface SelectedElement {
 }
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error'
+
+
+export interface AgentData {
+  /** IP of the host PC running the Flask ping agent */
+  agentIp: string
+  /** Device ID of the host to act upon */
+  targetHostId: string
+}

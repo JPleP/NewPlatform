@@ -13,10 +13,13 @@ import { useNetworkStore } from '@/stores/networkStore'
 import { useFlowStore } from '@/stores/flowStore'
 import { useMetricsStore } from '@/stores/metricsStore'
 import { LinkMetrics } from '@/types'
+import { fetchRtt } from '@/services/agentInteraction'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 // Default polling intervals (ms)
 const TOPOLOGY_MS = Number(import.meta.env.VITE_TOPOLOGY_POLL_MS ?? 5_000)
 const METRICS_MS  = Number(import.meta.env.VITE_METRICS_POLL_MS ?? 2_000)
+const RTT_MS      = Number(import.meta.env.VITE_RTT_POLL_MS      ?? 10_000)
 
 export const useOnosPolling = () => {
   const setTopology = useNetworkStore((s) => s.setTopology)
@@ -32,6 +35,8 @@ export const useOnosPolling = () => {
 
   const topoTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const metricsTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const rttTimer       = useRef<ReturnType<typeof setInterval> | null>(null)
+
 
   // Save a reference to the previous quantity of bytes per link
   const prevBytesRef = useRef<Map<string, number>>(new Map())
@@ -197,6 +202,30 @@ export const useOnosPolling = () => {
 
   }, [updateLinkMetrics])
 
+  // RTT probe poll: each configured host agent pings its target host,
+  // result is written onto that host's access link as latencyMs
+  const pollRtt = useCallback(async () => {
+    const entries = Object.entries(useSettingsStore.getState().agents)
+    if (entries.length === 0) return
+
+    const devices    = useNetworkStore.getState().devices
+    const links      = useNetworkStore.getState().links
+    const updateLink = useNetworkStore.getState().updateLink
+
+    await Promise.all(entries.map(async ([hostId, { agentIp, targetHostId }]) => {
+      const targetIp = devices.find((d) => d.id === targetHostId)?.ipAddress
+      if (!targetIp) return
+
+      const rtt = await fetchRtt(agentIp, targetIp)
+      if (rtt === null) return
+
+      const link = links.find((l) => l.sourceDeviceId === hostId || l.targetDeviceId === hostId)
+      if (link) {
+        updateLink({ ...link, latencyMs: rtt })
+      }
+    }))
+  }, [])
+
 
   // ── Start / stop polling ────────────────────────────────────────────────
   useEffect(() => {
@@ -217,6 +246,8 @@ export const useOnosPolling = () => {
       METRICS_MS
     )
 
+    rttTimer.current      = setInterval(pollRtt,      RTT_MS)
+
 
     return () => {
       console.log('[OnosPolling] stopped')
@@ -230,10 +261,16 @@ export const useOnosPolling = () => {
         clearInterval(metricsTimer.current)
         metricsTimer.current = null
       }
+
+      if (rttTimer.current) {
+        clearInterval(rttTimer.current)
+        rttTimer.current = null
+      }
     }
 
   }, [
     pollTopology,
-    pollMetrics
+    pollMetrics,
+    pollRtt
   ])
 }
