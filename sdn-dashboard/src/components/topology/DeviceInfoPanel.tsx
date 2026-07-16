@@ -17,6 +17,13 @@ const Row = ({ label, value, mono = false }: { label: string; value: React.React
     </span>
   </div>
 )
+//Helper Function to display the dropRate
+const dropRateClass = (dropRatePct = 0) =>
+  dropRatePct > 1
+    ? 'text-red-400 bg-red-500/10 border-red-500/30'
+    : dropRatePct >= 0.1
+      ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+      : 'text-slate-400 bg-slate-500/10 border-slate-500/30'
 
 export const DeviceInfoPanel = () => {
   const selectedElement = useNetworkStore((s) => s.selectedElement)
@@ -124,7 +131,19 @@ export const DeviceInfoPanel = () => {
           <Row label="Throughput" value={<span className={clsx('font-mono', utilClass)}>{formatBandwidth(link.throughputMbps)}</span>} />
           <Row label="Capacity" value={formatBandwidth(link.capacityMbps)} />
           <Row label="Latency" value={formatLatency(link.latencyMs)} mono />
-          <Row label="Packet loss" value={formatPercent(link.packetLossPct, 3)} mono />
+          <Row
+              label="Packet loss"
+              value={
+                <span
+                  className={clsx(
+                    'px-2 py-0.5 rounded-full border text-xs font-mono',
+                    dropRateClass(link.packetLossPct ?? 0)
+                  )}
+                >
+                  {formatPercent(link.packetLossPct ?? 0, 2)}
+                </span>
+              }
+            />
           <Row label="Src port" value={`${link.sourceDeviceId}:${link.sourcePort}`} mono />
           <Row label="Dst port" value={`${link.targetDeviceId}:${link.targetPort}`} mono />
         </div>
