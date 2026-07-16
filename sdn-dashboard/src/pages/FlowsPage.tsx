@@ -8,9 +8,11 @@ import { useFlowStore } from '@/stores/flowStore'
 import { useSliceStore, SLICE_COLOR_HEX } from '@/stores/sliceStore'
 import { useNetworkStore } from '@/stores/networkStore'
 import { colorClasses } from '@/components/flows/SliceBar'
-import type { SliceColor } from '@/types'
-import { Zap, Eye, Table, Search, X } from 'lucide-react'
+import type { FlowRule, SliceColor } from '@/types'
+import { Zap, Eye, Table, Search, X, Trash2 } from 'lucide-react'
 import { clsx } from 'clsx'
+import { deleteFlow } from '@/services/onosApi'
+
 
 export const FlowsPage = () => {
   const flows = useFlowStore(s => s.flows)
@@ -61,6 +63,12 @@ export const FlowsPage = () => {
   const handleFlowRowClick = (flowId: string) => {
     setSelectedFlow(flowId === selectedFlowId ? null : flowId)
     setPathBuilderMode(false)
+  }
+
+  const handleDelete = async (flow: FlowRule) => {
+    if (!confirm(`Delete rule ${flow.id}?`)) return
+    await deleteFlow(flow.deviceId, flow.id)
+    useFlowStore.getState().removeFlow(flow.id)
   }
 
   const filteredBySlice = selectedSliceId
@@ -273,6 +281,18 @@ export const FlowsPage = () => {
                             : flow.bytes > 1e3
                             ? (flow.bytes / 1e3).toFixed(0) + 'K'
                             : flow.bytes + 'B'}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(flow)
+                            }}
+                            className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                            title="Delete flow"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     )
