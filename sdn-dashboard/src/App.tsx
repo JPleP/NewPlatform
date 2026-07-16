@@ -13,6 +13,7 @@ import { SettingsPage   } from '@/pages/SettingsPage'
 import { useWebSocketManager } from '@/hooks/useWebSocket'
 import { useOnosPolling } from '@/hooks/useOnosPolling'
 import { startMockSimulation } from '@/utils/mockData'
+import { PathBuilderPage } from './pages/PathBuilderPage'
 
 
 // Read from .env.local — defaults to demo mode so the project works out of the box
@@ -47,7 +48,6 @@ const App = () => {
         <Route path="/experiments" element={<ExperimentsPage />} />
         <Route path="/alerts"      element={<AlertsPage />} />
         <Route path="/settings"    element={<SettingsPage />} />
-        <Route path="/pathbuild"    element={<PathBuilderPage />} />
       </Route>
     </Routes>
   )

@@ -12,6 +12,7 @@ import type { FlowRule, SliceColor } from '@/types'
 import { Zap, Eye, Table, Search, X, Trash2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { deleteFlow } from '@/services/onosApi'
+import { PathBuilderOverlay } from '@/components/flows/PathBuilderOverlay'
 
 
 export const FlowsPage = () => {
@@ -23,9 +24,8 @@ export const FlowsPage = () => {
   const { slices, selectedSliceId, setSelectedSlice, getSliceForFlow } = useSliceStore()
 
   const [showEditor, setShowEditor] = useState(false)
-  const [pathBuilderMode, setPathBuilderMode] = useState(false)
-  const [pathSrc, setPathSrc] = useState<string | null>(null)
-  const [pathDst, setPathDst] = useState<string | null>(null)
+  const [pathBuilderOpen, setPathBuilderOpen] = useState(false)
+  const [selectedPath, setSelectedPath] = useState<any | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
   const activeFlows = flows.filter(f => f.state === 'ADDED').length
@@ -35,34 +35,28 @@ export const FlowsPage = () => {
   // - If a flow is selected: highlight the device the flow is on
   // - If a slice is selected: highlight all devices referenced by slice's flows
   const highlightDeviceIds: string[] = (() => {
-    if (pathBuilderMode) return [pathSrc, pathDst].filter(Boolean) as string[]
-    if (selectedFlowId) {
-      const flow = flows.find(f => f.id === selectedFlowId)
-      if (flow) return [flow.deviceId]
-    }
-    if (selectedSliceId) {
-      const slice = slices.find(s => s.id === selectedSliceId)
-      if (slice) {
-        return [...new Set(
-          slice.flowIds
-            .map(fid => flows.find(f => f.id === fid)?.deviceId)
-            .filter(Boolean) as string[],
-        )]
-      }
-    }
-    return []
-  })()
+  if (selectedFlowId) {
+    const flow = flows.find(f => f.id === selectedFlowId)
+    if (flow) return [flow.deviceId]
+  }
 
-  const handlePathNodeClick = useCallback((id: string, _deviceType: string) => {
-    if (!pathBuilderMode) return
-    if (!pathSrc) { setPathSrc(id); return }
-    if (id === pathSrc) return
-    setPathDst(id)
-  }, [pathBuilderMode, pathSrc])
+  if (selectedSliceId) {
+    const slice = slices.find(s => s.id === selectedSliceId)
+    if (slice) {
+      return [...new Set(
+        slice.flowIds
+          .map(fid => flows.find(f => f.id === fid)?.deviceId)
+          .filter(Boolean) as string[],
+      )]
+    }
+  }
+
+  return []
+})()
+
 
   const handleFlowRowClick = (flowId: string) => {
     setSelectedFlow(flowId === selectedFlowId ? null : flowId)
-    setPathBuilderMode(false)
   }
 
   const handleDelete = async (flow: FlowRule) => {
@@ -100,32 +94,18 @@ export const FlowsPage = () => {
           <div className="flex items-center gap-3 px-4 py-2 border-b border-slate-700/40 flex-shrink-0 bg-slate-900/50">
             <Eye className="w-4 h-4 text-slate-400" />
             <span className="text-xs font-semibold text-slate-300">Topology</span>
-            {highlightDeviceIds.length > 0 && !pathBuilderMode && (
+            {highlightDeviceIds.length > 0 && (
               <span className="text-xs text-slate-500">
                 Highlighting {highlightDeviceIds.length} device{highlightDeviceIds.length > 1 ? 's' : ''}
               </span>
             )}
-            {pathBuilderMode && (
-              <span className="text-xs text-sdn-400 animate-pulse">
-                {!pathSrc ? 'Click source node…' : !pathDst ? 'Click destination node…' : 'Path selected'}
-              </span>
-            )}
             <div className="ml-auto flex gap-2">
               <button
-                onClick={() => {
-                  setPathBuilderMode(v => !v)
-                  setPathSrc(null)
-                  setPathDst(null)
-                }}
-                className={clsx(
-                  'flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all',
-                  pathBuilderMode
-                    ? 'bg-sdn-600 text-white'
-                    : 'bg-slate-800 text-slate-400 hover:text-slate-200',
-                )}
+                onClick={() => setPathBuilderOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all bg-slate-800 text-slate-400 hover:text-slate-200"
               >
                 <Zap className="w-3.5 h-3.5" />
-                {pathBuilderMode ? 'Building Path…' : 'Build Path'}
+                Build Path
               </button>
             </div>
           </div>
@@ -134,23 +114,10 @@ export const FlowsPage = () => {
           <div className="flex-1 relative min-h-0">
             <NetworkTopologyGraph
               highlightDeviceIds={highlightDeviceIds}
-              pathBuilderMode={pathBuilderMode}
-              onPathNodeClick={handlePathNodeClick}
             />
           </div>
 
-          {/* Path Builder panel at bottom of left column */}
-          {pathBuilderMode && (
-            <div className="p-3 border-t border-slate-700/40 flex-shrink-0">
-              <PathBuilder
-                srcId={pathSrc}
-                dstId={pathDst}
-                onReset={() => { setPathSrc(null); setPathDst(null) }}
-                onCancel={() => { setPathBuilderMode(false); setPathSrc(null); setPathDst(null) }}
-                selectedSliceId={selectedSliceId}
-              />
-            </div>
-          )}
+          
         </div>
 
         {/* ── RIGHT: Slices + Flow Table ─────────────────────────────── */}
@@ -312,7 +279,24 @@ export const FlowsPage = () => {
           </div>
         </div>
       </div>
-
+      
+      {selectedPath && !pathBuilderOpen && (
+        <PathBuilder
+          pathSelected={selectedPath}
+          selectedSliceId={selectedSliceId}
+          onReset={() => setSelectedPath(null)}
+          onCancel={() => setSelectedPath(null)}
+        />
+      )}
+      <PathBuilderOverlay
+        isOpen={pathBuilderOpen}
+        onClose={() => setPathBuilderOpen(false)}
+        defaultSliceId={selectedSliceId}
+        onConfirm={(path) => {
+          setSelectedPath(path)
+          setPathBuilderOpen(false)
+        }}
+      />
       {showEditor && <FlowRuleEditor onClose={() => setShowEditor(false)} />}
     </div>
   )

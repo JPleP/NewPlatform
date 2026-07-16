@@ -6,57 +6,31 @@ import { colorClasses } from './SliceBar'
 import type { FlowRule, SliceColor } from '@/types'
 import { clsx } from 'clsx'
 import { addFlow as pushFlowToOnos } from '@/services/onosApi'
+import { PathBuilderData } from '@/stores/pathStore'
 
 interface PathBuilderProps {
-  srcId: string | null
-  dstId: string | null
+  pathSelected: PathBuilderData
   onReset: () => void
   onCancel: () => void
   selectedSliceId: string | null
 }
 
-export const PathBuilder = ({ srcId, dstId, onReset, onCancel, selectedSliceId }: PathBuilderProps) => {
+export const PathBuilder = ({ pathSelected, onReset, onCancel, selectedSliceId }: PathBuilderProps) => {
   const devices = useNetworkStore(s => s.devices)
   const links = useNetworkStore(s => s.links)
   const { addFlow } = useFlowStore()
   const { slices, assignFlowToSlice } = useSliceStore()
 
-  const src = devices.find(d => d.id === srcId)
-  const dst = devices.find(d => d.id === dstId)
+  const src = devices.find(d => d.id === pathSelected.srcId)
+  const dst = devices.find(d => d.id === pathSelected.dstId)
   const slice = slices.find(s => s.id === selectedSliceId)
 
-  // Find a path between src and dst through all devices (BFS)
-  const findPath = (srcId: string, dstId: string): string[] => {
-    if (!srcId || !dstId) return []
-    const adj: Record<string, string[]> = {}
-    links.forEach(l => {
-      if (!adj[l.sourceDeviceId]) adj[l.sourceDeviceId] = []
-      if (!adj[l.targetDeviceId]) adj[l.targetDeviceId] = []
-      adj[l.sourceDeviceId].push(l.targetDeviceId)
-      adj[l.targetDeviceId].push(l.sourceDeviceId)
-    })
-    const queue = [[srcId]]
-    const visited = new Set([srcId])
-    while (queue.length) {
-      const path = queue.shift()!
-      const node = path[path.length - 1]
-      if (node === dstId) return path
-      for (const next of (adj[node] ?? [])) {
-        if (!visited.has(next)) {
-          visited.add(next)
-          queue.push([...path, next])
-        }
-      }
-    }
-    return []
-  }
-
-  const path = srcId && dstId ? findPath(srcId, dstId) : []
+  const path = pathSelected.hops
 
   const switchesOnPath = path.filter(id => devices.find(d => d.id === id)?.type === 'switch')
 
   const deployFlow = async () => {
-    if (!srcId || !dstId || path.length < 2) return
+    if (!pathSelected.srcId || !pathSelected.dstId || path.length < 2) return
 
     const priority = slice?.priority ?? 40000
     const newFlowIds: string[] = []
@@ -161,17 +135,17 @@ export const PathBuilder = ({ srcId, dstId, onReset, onCancel, selectedSliceId }
       </div>
 
       <p className="text-xs text-slate-400">
-        {!srcId
+        {!pathSelected.srcId
           ? '① Click a node on the topology as source'
-          : !dstId
+          : !pathSelected.dstId
           ? '② Click another node as destination'
           : `Path found: ${path.length} hops · ${switchesOnPath.length} switch${switchesOnPath.length !== 1 ? 'es' : ''}`}
       </p>
 
       <div className="flex items-center gap-2">
-        <NodeChip id={srcId} step="Select source…" />
+        <NodeChip id={pathSelected.srcId} step="Select source…" />
         <ArrowRight className="w-4 h-4 text-slate-500 flex-shrink-0" />
-        <NodeChip id={dstId} step="Select dest…" />
+        <NodeChip id={pathSelected.dstId} step="Select dest…" />
       </div>
 
       {path.length > 1 && (
@@ -204,7 +178,7 @@ export const PathBuilder = ({ srcId, dstId, onReset, onCancel, selectedSliceId }
         </button>
         <button
           onClick={deployFlow}
-          disabled={!srcId || !dstId || path.length < 2}
+          disabled={!pathSelected.srcId || !pathSelected.dstId || path.length < 2}
           className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded bg-sdn-600 hover:bg-sdn-500 text-sm text-white disabled:opacity-40 transition-colors"
         >
           <Zap className="w-3.5 h-3.5" />
