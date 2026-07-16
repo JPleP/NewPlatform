@@ -24,7 +24,7 @@ const RealModePolling = () => {
 }
 
 const App = () => {
-  useWebSocketManager()
+  //useWebSocketManager()
 
   useEffect(() => {
     if (DEMO_MODE) startMockSimulation()

@@ -30,6 +30,9 @@ export const useOnosPolling = () => {
   const topoTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const metricsTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Save a reference to the previous quantity of bytes per link
+  const prevBytesRef = useRef<Map<string, number>>(new Map())
+
 
   // ── Topology + flows poll ────────────────────────────────────────────────
   const pollTopology = useCallback(async () => {
@@ -121,15 +124,22 @@ export const useOnosPolling = () => {
 
 
         if (srcStats) {
-          const throughput =
-            (srcStats.txBytes * 8) /
-            1e6 /
-            (srcStats.durationSec || 1)
+          // const throughput =
+          //   (srcStats.txBytes * 8) /
+          //   1e6 /
+          //   (srcStats.durationSec || 1)
+
+          // Calculate the current throughput of the link
+          const key      = `${link.sourceDeviceId}:${link.sourcePort}`
+          const prevBytes = prevBytesRef.current.get(key) ?? srcStats.txBytes
+          const deltaBytes = Math.max(0, srcStats.txBytes - prevBytes)  // guard against counter reset
+          const tputMbps  = (deltaBytes * 8) / 1e6 / (METRICS_MS / 1000)
+          prevBytesRef.current.set(key, srcStats.txBytes)
 
           updateLinkMetrics(
             link.id,
             {
-              bandwidth: throughput,
+              bandwidth: tputMbps,
               latency: link.latencyMs,
               packetLoss: link.packetLossPct,
               rxBytes: srcStats.rxBytes,
