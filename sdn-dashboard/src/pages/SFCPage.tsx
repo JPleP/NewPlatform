@@ -9,6 +9,8 @@ import {
   ArrowRight, Plus, Trash2, Activity, AlertTriangle,
   CheckCircle2, Clock, Layers3,
 } from 'lucide-react'
+import { PathBuilderOverlay } from '@/components/flows/PathBuilderOverlay'
+import { FlowDeployerChain } from '@/components/flows/PathBuilder'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -200,6 +202,13 @@ const ChainRow = ({
       >
         <Trash2 className="w-3.5 h-3.5 text-slate-500 hover:text-red-400" />
       </button>
+
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete() }}
+        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/20 transition-all ml-1 flex-shrink-0"
+      >
+        <Trash2 className="w-3.5 h-3.5 text-slate-500 hover:text-red-400" />
+      </button>
     </div>
   )
 }
@@ -229,6 +238,12 @@ const ChainDetail = ({
     ? AlertTriangle
     : Clock
 
+  const updateChain = useSFCStore(
+    (state) => state.updateChain
+  )
+
+  const [name, setName] = useState(chain.name)
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
@@ -237,16 +252,59 @@ const ChainDetail = ({
         style={{ borderTopColor: color, borderTopWidth: 2 }}
       >
         <div className="flex items-center gap-2 mb-1">
-          <StateIcon className="w-4 h-4" style={{ color: sm.cls.includes('green') ? '#22c55e' : sm.cls.includes('amber') ? '#f59e0b' : '#ef4444' }} />
-          <h3 className="text-sm font-bold text-slate-100">{chain.name}</h3>
-          <span className={clsx('badge text-[10px]', sm.cls)}>{sm.label}</span>
+          <StateIcon
+            className="w-4 h-4"
+            style={{
+              color: sm.cls.includes('green')
+                ? '#22c55e'
+                : sm.cls.includes('amber')
+                  ? '#f59e0b'
+                  : '#ef4444',
+            }}
+          />
+
+          <input
+            className="text-sm font-bold text-slate-100 bg-transparent border-none outline-none"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                // trigger action here
+                updateChain(chain.id, {
+                  name: name,
+                });
+              }
+            }}
+          />
+
+          <span className={clsx('badge text-[10px]', sm.cls)}>
+            {sm.label}
+          </span>
+          <button
+            className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-500 transition-colors"
+            onClick={async () => {
+              if(chain.state != 'active')
+                await FlowDeployerChain({ chain })
+            }}
+          >
+            Deploy
+          </button>
         </div>
         <p className="text-xs text-slate-500">{chain.description}</p>
+      </div>
+      <div className="mt-2 inline-flex items-center gap-2 px-2 py-1 rounded bg-slate-800 border border-slate-700/60">
+        <span className="text-[10px] text-slate-500 uppercase">VLAN</span>
+        <span className="text-xs font-mono text-slate-200">
+          {chain.vlanId ?? '—'}
+        </span>
       </div>
 
       {/* Summary stats row */}
       <div className="grid grid-cols-4 divide-x divide-slate-700/40 border-b border-slate-700/40 flex-shrink-0">
         {[
+          { label: 'VLAN', value: String(chain.vlanId ?? '—') },
           { label: 'Hops', value: String(chain.hops.length) },
           { label: 'Total Latency', value: fmtMs(totalLatency) },
           { label: 'Min Throughput', value: fmtMbps(minTput) },
@@ -284,7 +342,7 @@ const ChainDetail = ({
           {/* Hop cards */}
           {chain.hops.map((hop, idx) => (
             <HopCard
-              key={hop.deviceId + idx}
+              key={`${hop.deviceId}-${idx}`}
               hop={hop}
               device={devices.find((d) => d.id === hop.deviceId)}
               chainColor={color}
@@ -320,7 +378,8 @@ const ChainDetail = ({
             Installed Flow Rules
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {chain.hops.flatMap((h) => h.flowIds).map((fid) => (
+            {
+            chain.hops.flatMap((h) => h.flowIds).map((fid) => (
               <span key={fid} className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700/60 text-[10px] font-mono text-slate-400">
                 {fid}
               </span>
@@ -339,6 +398,8 @@ export const SFCPage = () => {
   const devices = useNetworkStore((s) => s.devices)
 
   const [showAddModal, setShowAddModal] = useState(false)
+  const [pathBuilderOpen, setPathBuilderOpen] = useState(false)
+  const [selectedPath, setSelectedPath] = useState<any | null>(null)
 
   const selectedChain = chains.find((c) => c.id === selectedChainId) ?? null
 
@@ -403,8 +464,10 @@ export const SFCPage = () => {
             <Layers3 className="w-4 h-4 text-slate-400" />
             <span className="text-xs font-semibold text-slate-300">Chains</span>
             <span className="text-xs text-slate-500">({chains.length})</span>
+            
+            
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => setPathBuilderOpen(true)}
               className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-sdn-600 hover:bg-sdn-500 text-white transition-colors"
             >
               <Plus className="w-3.5 h-3.5" /> New Chain
@@ -449,27 +512,41 @@ export const SFCPage = () => {
         </div>
       </div>
 
-      {/* ── Add Chain modal (stub) ──────────────────────────────────────────── */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="glass-card p-6 w-96 space-y-4 animate-fade-in">
-            <h3 className="font-semibold text-slate-100">New Service Function Chain</h3>
-            <p className="text-sm text-slate-400">
-              Use the Path Builder on the <strong className="text-slate-200">Flow Rules</strong> page
-              to build a path, then assign service functions to each hop.
-              Full chain editor coming soon.
-            </p>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 rounded bg-sdn-600 hover:bg-sdn-500 text-white text-sm transition-colors"
-              >
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
+      <PathBuilderOverlay
+      isOpen={pathBuilderOpen}
+      onClose={() => setPathBuilderOpen(false)}
+      onConfirm={(path) => {
+        const addChain = useSFCStore.getState().addChain
+
+        const newChainId = addChain({
+          name: `Custom Chain ${chains.length + 1}`,
+          description: 'Service function chain created from path builder',
+          color: 'blue',
+          vlanId: 100,
+          srcHostId: path.srcId,
+          dstHostId: path.dstId,
+          state: 'configuring',
+          linkPath: path.links,
+          hops: path.hops.slice(1,-1).map((node: any) => ({
+            deviceId: node,
+            serviceFunction: 'Monitor',
+            sfType: 'monitor',
+            flowIds: [],
+            metrics: {
+              latencyMs: 0,
+              throughputMbps: 0,
+              packetLossPct: 0,
+              packetsProcessed: 0,
+            },
+          })),
+        })
+
+        console.log(newChainId)
+        setSelectedChain(newChainId)
+        setPathBuilderOpen(false)
+      }}
+    />
     </div>
   )
 }

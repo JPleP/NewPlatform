@@ -93,7 +93,7 @@ export const BuildPath = ({
   const now = Date.now()
 
   const newPath: PathBuilderData = {
-    id: crypto.randomUUID(),
+    id: Date.now() + Math.floor(Math.random() * 1000),
 
     srcId,
     dstId,

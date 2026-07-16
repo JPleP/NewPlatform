@@ -7,6 +7,7 @@ import type { FlowRule, SliceColor } from '@/types'
 import { clsx } from 'clsx'
 import { addFlow as pushFlowToOnos } from '@/services/onosApi'
 import { PathBuilderData } from '@/stores/pathStore'
+import { useSFCStore } from '@/stores/sfcStore'
 
 interface PathBuilderProps {
   pathSelected: PathBuilderData
@@ -14,6 +15,124 @@ interface PathBuilderProps {
   onCancel: () => void
   selectedSliceId: string | null
 }
+
+
+export const FlowDeployerChain = async ({chain, priorityChain}:any) => {
+  const { devices, links } = useNetworkStore.getState()
+  const { addFlow } = useFlowStore.getState()
+  const { updateChain } = useSFCStore.getState()
+
+  const src = devices.find(d => d.id === chain.srcHostId)
+  const dst = devices.find(d => d.id === chain.dstHostId)
+
+  const switchHops = chain.hops
+
+  
+
+  if (!chain.srcHostId || !chain.srcHostId || switchHops.length == 0 ) return
+
+    const priority = priorityChain ?? 45000
+    //const newFlowIds: string[] = []
+
+    for (const [index, hop] of switchHops.entries()) {
+      const swId = hop.deviceId
+      // Find the next hop link to determine output port
+      let nextHopId;
+      if(index == switchHops.length - 1)
+        nextHopId = dst
+      else
+        nextHopId = switchHops[index + 1].deviceId
+      const link = nextHopId
+        ? links.find(l =>
+            (l.sourceDeviceId === swId && l.targetDeviceId === nextHopId) ||
+            (l.targetDeviceId === swId && l.sourceDeviceId === nextHopId),
+          )
+        : undefined
+      const outPort = link
+        ? (link.sourceDeviceId === swId ? link.sourcePort : link.targetPort)
+        : 1
+      let flow: FlowRule;
+      if(index == 0){
+        flow = {
+          id: `flow-${Date.now()}-${index}`,
+          deviceId: swId,
+          tableId: 0,
+          priority,
+          timeout: 0,
+          hardTimeout: 0,
+          isPermanent: true,
+          state: 'ADDED',
+          bytes: 0,
+          packets: 0,
+          createdAt: new Date().toISOString(),
+          appId: 'path-builder',
+          match: {
+            ethType: '0x0800',
+            ...(src?.ipAddress && { ipSrc: src.ipAddress + '/32' }),
+
+          },
+          actions: [{ type: 'SET_VLAN_ID', vlanId: 100 }, { type: 'OUTPUT', port: outPort }],
+        }
+      } else if (index == switchHops.length - 1) {
+        flow = {
+          id: `flow-${Date.now()}-${index}`,
+          deviceId: swId,
+          tableId: 0,
+          priority,
+          timeout: 0,
+          hardTimeout: 0,
+          isPermanent: true,
+          state: 'ADDED',
+          bytes: 0,
+          packets: 0,
+          createdAt: new Date().toISOString(),
+          appId: 'path-builder',
+          match: {
+            ethType: '0x0800',
+            ...{ vlanId: 100 },
+
+          },
+          actions: [{ type: 'SET_VLAN_ID', vlanId: 0 }, { type: 'OUTPUT', port: outPort }],
+        }
+      } else {
+        flow = {
+          id: `flow-${Date.now()}-${index}`,
+          deviceId: swId,
+          tableId: 0,
+          priority,
+          timeout: 0,
+          hardTimeout: 0,
+          isPermanent: true,
+          state: 'ADDED',
+          bytes: 0,
+          packets: 0,
+          createdAt: new Date().toISOString(),
+          appId: 'path-builder',
+          match: {
+            ethType: '0x0800',
+            ...{ vlanId: 100 },
+
+          },
+          actions: [{ type: 'OUTPUT', port: outPort }],
+        }
+      }
+      
+      addFlow(flow)
+      
+      await pushFlowToOnos(                       // new — pushes to ONOS
+        flow.deviceId, flow.priority,
+        flow.match, flow.actions,
+        true, 0, 'org.onosproject.rest'
+      )
+      hop.flowIds.push(flow.id)
+
+
+      
+    }
+    chain.state = 'active'
+    updateChain(chain.id, chain); 
+}
+
 
 export const PathBuilder = ({ pathSelected, onReset, onCancel, selectedSliceId }: PathBuilderProps) => {
   const devices = useNetworkStore(s => s.devices)

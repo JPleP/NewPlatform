@@ -211,6 +211,8 @@ export interface ServiceFunctionChain {
   /** Ordered link IDs that form the data-plane path */
   linkPath: string[]
   createdAt: string
+
+  vlanId: number   // add this
 }
 
 // ─── Alert / Event Types ──────────────────────────────────────────────────────
